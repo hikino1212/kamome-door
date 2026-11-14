@@ -28,11 +28,20 @@
   .alt{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));
     font:14px sans-serif;color:#23395B;background:#fff;border-radius:999px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,.2);text-decoration:none}
   .alt.show{display:block}
+  /* アイコンのバッジ（数字）を出すための許可のお願い。ホーム画面のアプリで、まだ許可していないときだけ出す */
+  .bdg{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(96px + env(safe-area-inset-top,0px));z-index:5;
+    width:min(440px,calc(100% - 24px));box-sizing:border-box;background:#fff;color:#23395B;border-radius:16px;padding:10px 12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);font:14px/1.5 "Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;align-items:center;gap:8px}
+  .bdg.show{display:flex}
+  .bdg span{flex:1}
+  .bdg button{border:0;border-radius:999px;font:inherit;font-weight:700;padding:8px 12px;cursor:pointer}
+  .bdg .ok{background:#3E9BD6;color:#fff}.bdg .no{background:#eef3f8;color:#23395B}
 </style>
 </head>
 <body>
 <!-- かもめのはばたき 本体（Apps Script・家族のURL） -->
 <iframe id="app" title="かもめのはばたき" allow="camera; clipboard-write"></iframe>
+<div class="bdg" id="bdg"><span>🔔 新しい質問などがあると、アイコンに数字（バッジ）が出るようにしますか？</span><button class="ok" id="bdgok">はい</button><button class="no" id="bdgno">あとで</button></div>
 <a class="alt" id="alt" href="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec" target="_top">ひらけないときは ここをタップ</a>
 <script>
   // ログインを ずっと たもつ：アプリからもらった「端末キー」をここ（ホーム画面のアプリ側）に保存し、
@@ -52,8 +61,30 @@
     try {
       if (d.type === 'kamome-token' && /^dt_[A-Za-z0-9]{20,80}$/.test(d.token)) localStorage.setItem(KEY, d.token);
       if (d.type === 'kamome-logout') localStorage.removeItem(KEY);
+      if (d.type === 'kamome-badge') badge(Math.max(0, Math.min(99, parseInt(d.n, 10) || 0)));
     } catch (x) {}
   });
+  // iPhone のアイコンのバッジ（ホーム画面に追加したアプリで、通知を許可したときだけ出せる：iOS 16.4 から）
+  // アプリを開くたび・1分ごとに、アプリから「やること」の数をもらって数字を更新する。閉じている間は、最後に開いたときの数のまま。
+  var standalone = (window.navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  var bdg = document.getElementById('bdg'), lastN = 0;
+  function canBadge() { return 'setAppBadge' in navigator; }
+  function badge(n) {
+    lastN = n;
+    if (!canBadge()) return;
+    var perm = ('Notification' in window) ? Notification.permission : 'denied';
+    if (perm === 'granted') { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(function () {}); return; }
+    var later = 0; try { later = +localStorage.getItem('kamome_badge_later') || 0; } catch (x) {}
+    if (standalone && perm === 'default' && Date.now() - later > 7 * 86400000) bdg.className = 'bdg show';
+  }
+  document.getElementById('bdgok').onclick = function () {
+    bdg.className = 'bdg';
+    if (!('Notification' in window)) return;
+    Notification.requestPermission().then(function (p) { if (p === 'granted') badge(lastN); }).catch(function () {});
+  };
+  document.getElementById('bdgno').onclick = function () {
+    bdg.className = 'bdg'; try { localStorage.setItem('kamome_badge_later', String(Date.now())); } catch (x) {}
+  };
 </script>
 </body>
 </html>
