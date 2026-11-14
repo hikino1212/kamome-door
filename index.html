@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="かもめ">
-<!-- 上の時計のところまで空の色にする -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- 時計のところは iPhone の標準の色（上下がずれないように、空の色にする設定はやめた） -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#4FAEEC">
 <meta name="robots" content="noindex, nofollow">
 <style>
@@ -24,7 +24,7 @@
   body{background:linear-gradient(180deg,var(--top) 0,var(--top) 50%,var(--bottom) 50%,var(--bottom) 100%)}
   /* アプリは見えている範囲いっぱいに表示（はみ出すと下のタブが見えなくなるので、画面の高さで無理に広げない） */
   iframe{position:fixed;top:0;left:0;width:100%;height:100%;border:0;background:transparent;
-    padding-top:env(safe-area-inset-top,0px);box-sizing:border-box}
+    box-sizing:border-box}
   .alt{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));
     font:14px sans-serif;color:#23395B;background:#fff;border-radius:999px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,.2);text-decoration:none}
   .alt.show{display:block}
