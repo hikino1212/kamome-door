@@ -10,20 +10,47 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="かもめ">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- 上の時計のところまで空の色にする -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#4FAEEC">
 <meta name="robots" content="noindex, nofollow">
 <style>
-  html,body{margin:0;height:100%;background:#E2F3FD}
-  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;
-    padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;background:#E2F3FD}
-  .alt{position:fixed;right:8px;top:calc(4px + env(safe-area-inset-top,0px));font:12px sans-serif;color:#6A7F9C;opacity:.8}
+  :root{--top:#4FAEEC;--bottom:#FFFFFF}
+  @media (prefers-color-scheme:dark){:root{--top:#0B2140;--bottom:#1A3050}}
+  html,body{margin:0;height:100%}
+  /* 上（時計のところ）は空の色、下（ホームバーのところ）は下のタブと同じ色 */
+  body{background:linear-gradient(180deg,var(--top) 0,var(--top) 50%,var(--bottom) 50%,var(--bottom) 100%)}
+  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:transparent;
+    padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
+  .alt{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));
+    font:14px sans-serif;color:#23395B;background:#fff;border-radius:999px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,.2);text-decoration:none}
+  .alt.show{display:block}
 </style>
 </head>
 <body>
 <!-- かもめのはばたき 本体（Apps Script・家族のURL） -->
-<iframe src="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec"
-  title="かもめのはばたき" allow="camera; clipboard-write"></iframe>
-<a class="alt" href="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec" target="_top">ひらけないとき</a>
+<iframe id="app" title="かもめのはばたき" allow="camera; clipboard-write"></iframe>
+<a class="alt" id="alt" href="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec" target="_top">ひらけないときは ここをタップ</a>
+<script>
+  // ログインを ずっと たもつ：アプリからもらった「端末キー」をここ（ホーム画面のアプリ側）に保存し、
+  // 開くたびにアプリへ渡す。あいことば そのものは保存しない。
+  var EXEC = 'https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec';
+  var KEY = 'kamome_token', t = null;
+  try { t = localStorage.getItem(KEY); } catch (e) {}
+  var app = document.getElementById('app'), loaded = false;
+  app.src = EXEC + (t && /^dt_[A-Za-z0-9]{20,80}$/.test(t) ? '?dt=' + encodeURIComponent(t) : '');
+  app.addEventListener('load', function () { loaded = true; });
+  // 12秒たっても開かないときだけ「ひらけないとき」を出す
+  setTimeout(function () { if (!loaded) document.getElementById('alt').className = 'alt show'; }, 12000);
+  window.addEventListener('message', function (e) {
+    var host = ''; try { host = new URL(e.origin).hostname; } catch (x) {}
+    if (!/\.googleusercontent\.com$/.test(host)) return;   // アプリ（Google の画面）からのメッセージだけ受け取る
+    var d = e.data || {};
+    try {
+      if (d.type === 'kamome-token' && /^dt_[A-Za-z0-9]{20,80}$/.test(d.token)) localStorage.setItem(KEY, d.token);
+      if (d.type === 'kamome-logout') localStorage.removeItem(KEY);
+    } catch (x) {}
+  });
+</script>
 </body>
 </html>
