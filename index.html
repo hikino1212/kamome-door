@@ -74,7 +74,7 @@
   // ---- プッシュ通知（Firebase Cloud Messaging）。下の設定はパパが Firebase で作ったもの（公開してよい値。秘密の鍵ではない） ----
   var FB = { apiKey: 'AIzaSyDM8002cLWvOuiUrxvA6KhRela-lDz92Xs', authDomain: 'kamome-habataki.firebaseapp.com', projectId: 'kamome-habataki',
     storageBucket: 'kamome-habataki.firebasestorage.app', messagingSenderId: '604651061750', appId: '1:604651061750:web:291536e15c78ffbaa407d7' };
-  var VAPID = '';   // Firebase の「ウェブプッシュ証明書」の公開鍵
+  var VAPID = 'BFV1q6yMPjgmjeqyOCWlB8rGd4wnPP3XR3dUsfwb12nFsvkwNGjNrK6Z1vC8hMpxueJuzi8-8_hU2r9k7Swd7CY';   // Firebase の「ウェブプッシュ証明書」の公開鍵
   var FBV = '10.12.2', pushTok = null, tokSent = false, appWin = null, appOrigin = '';
   try { pushTok = localStorage.getItem('kamome_push'); } catch (x) {}
   function pushReady() { return !!(FB.apiKey && FB.projectId && FB.messagingSenderId && FB.appId && VAPID) && 'serviceWorker' in navigator && 'PushManager' in window; }
