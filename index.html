@@ -20,7 +20,8 @@
   html,body{margin:0;height:100%}
   /* 上（時計のところ）は空の色。下はアプリの画面が一番下まで広がる（ホームバーの分はアプリ側のタブがとる） */
   body{background:var(--top)}
-  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:transparent;
+  /* iPhone のホーム画面アプリでは「100%」が時計の分だけ短くなるので、大きいほうの高さ（100lvh）＋下のJSで画面の本当の高さに合わせる */
+  iframe{position:fixed;top:0;left:0;width:100%;height:100%;height:100lvh;border:0;background:transparent;
     padding-top:env(safe-area-inset-top,0px);box-sizing:border-box}
   .alt{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));
     font:14px sans-serif;color:#23395B;background:#fff;border-radius:999px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,.2);text-decoration:none}
@@ -40,6 +41,16 @@
   var app = document.getElementById('app'), loaded = false;
   app.src = EXEC + (t && /^dt_[A-Za-z0-9]{20,80}$/.test(t) ? '?dt=' + encodeURIComponent(t) : '');
   app.addEventListener('load', function () { loaded = true; });
+  // ホーム画面から開いたとき：アプリの画面を画面の一番下まで広げる
+  function fitHeight() {
+    var portrait = window.innerHeight >= window.innerWidth;
+    var full = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+    var h = Math.max(window.innerHeight, document.documentElement.clientHeight, window.navigator.standalone ? full : 0);
+    app.style.height = h + 'px';
+  }
+  fitHeight();
+  window.addEventListener('resize', fitHeight);
+  window.addEventListener('orientationchange', function () { setTimeout(fitHeight, 300); });
   // 12秒たっても開かないときだけ「ひらけないとき」を出す
   setTimeout(function () { if (!loaded) document.getElementById('alt').className = 'alt show'; }, 12000);
   window.addEventListener('message', function (e) {
