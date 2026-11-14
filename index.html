@@ -72,7 +72,8 @@
   var bdg = document.getElementById('bdg'), lastN = 0;
   function canBadge() { return 'setAppBadge' in navigator; }
   // ---- プッシュ通知（Firebase Cloud Messaging）。下の設定はパパが Firebase で作ったもの（公開してよい値。秘密の鍵ではない） ----
-  var FB = { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' };
+  var FB = { apiKey: 'AIzaSyDM8002cLWvOuiUrxvA6KhRela-lDz92Xs', authDomain: 'kamome-habataki.firebaseapp.com', projectId: 'kamome-habataki',
+    storageBucket: 'kamome-habataki.firebasestorage.app', messagingSenderId: '604651061750', appId: '1:604651061750:web:291536e15c78ffbaa407d7' };
   var VAPID = '';   // Firebase の「ウェブプッシュ証明書」の公開鍵
   var FBV = '10.12.2', pushTok = null, tokSent = false, appWin = null, appOrigin = '';
   try { pushTok = localStorage.getItem('kamome_push'); } catch (x) {}
