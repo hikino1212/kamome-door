@@ -17,9 +17,11 @@
 <style>
   :root{--top:#4FAEEC;--bottom:#FFFFFF}
   @media (prefers-color-scheme:dark){:root{--top:#0B2140;--bottom:#1A3050}}
-  html,body{margin:0;height:100%}
-  /* 上（時計のところ）は空の色。下はアプリの画面が一番下まで広がる（ホームバーの分はアプリ側のタブがとる） */
-  body{background:var(--top)}
+  /* 入り口ページ自体はスクロールさせない（中のアプリだけがスクロールする） */
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{position:fixed;inset:0}
+  /* 上（時計のところ）は空の色、下はアプリの下のタブと同じ色（すき間ができてもタブとつながって見える） */
+  body{background:linear-gradient(180deg,var(--top) 0,var(--top) 50%,var(--bottom) 50%,var(--bottom) 100%)}
   /* iPhone のホーム画面アプリでは「100%」が時計の分だけ短くなるので、大きいほうの高さ（100lvh）＋下のJSで画面の本当の高さに合わせる */
   iframe{position:fixed;top:0;left:0;width:100%;height:100%;height:100lvh;border:0;background:transparent;
     padding-top:env(safe-area-inset-top,0px);box-sizing:border-box}
@@ -45,7 +47,8 @@
   function fitHeight() {
     var portrait = window.innerHeight >= window.innerWidth;
     var full = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
-    var h = Math.max(window.innerHeight, document.documentElement.clientHeight, window.navigator.standalone ? full : 0);
+    var h = Math.max(window.innerHeight, document.documentElement.clientHeight);
+    if (window.navigator.standalone) h = Math.max(h, full);
     app.style.height = h + 'px';
   }
   fitHeight();
