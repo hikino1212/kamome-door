@@ -7,6 +7,8 @@
 <!-- iPhone の「ホーム画面に追加」で使われるアイコンと名前 -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon.png">
+<!-- プッシュ通知に必要（iPhone はホーム画面に追加したアプリだけ通知を受けとれる） -->
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="かもめ">
@@ -41,7 +43,7 @@
 <body>
 <!-- かもめのはばたき 本体（Apps Script・家族のURL） -->
 <iframe id="app" title="かもめのはばたき" allow="camera; clipboard-write"></iframe>
-<div class="bdg" id="bdg"><span>🔔 新しい質問などがあると、アイコンに数字（バッジ）が出るようにしますか？</span><button class="ok" id="bdgok">はい</button><button class="no" id="bdgno">あとで</button></div>
+<div class="bdg" id="bdg"><span>🔔 新しい質問や答えがとどいたら、お知らせ（通知）とアイコンの数字で知らせますか？</span><button class="ok" id="bdgok">はい</button><button class="no" id="bdgno">あとで</button></div>
 <a class="alt" id="alt" href="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec" target="_top">ひらけないときは ここをタップ</a>
 <script>
   // ログインを ずっと たもつ：アプリからもらった「端末キー」をここ（ホーム画面のアプリ側）に保存し、
@@ -61,7 +63,7 @@
     try {
       if (d.type === 'kamome-token' && /^dt_[A-Za-z0-9]{20,80}$/.test(d.token)) localStorage.setItem(KEY, d.token);
       if (d.type === 'kamome-logout') localStorage.removeItem(KEY);
-      if (d.type === 'kamome-badge') badge(Math.max(0, Math.min(99, parseInt(d.n, 10) || 0)));
+      if (d.type === 'kamome-badge') { badge(Math.max(0, Math.min(99, parseInt(d.n, 10) || 0))); appWin = e.source; appOrigin = e.origin; sendTok(); }
     } catch (x) {}
   });
   // iPhone のアイコンのバッジ（ホーム画面に追加したアプリで、通知を許可したときだけ出せる：iOS 16.4 から）
@@ -69,18 +71,43 @@
   var standalone = (window.navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   var bdg = document.getElementById('bdg'), lastN = 0;
   function canBadge() { return 'setAppBadge' in navigator; }
+  // ---- プッシュ通知（Firebase Cloud Messaging）。下の設定はパパが Firebase で作ったもの（公開してよい値。秘密の鍵ではない） ----
+  var FB = { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' };
+  var VAPID = '';   // Firebase の「ウェブプッシュ証明書」の公開鍵
+  var FBV = '10.12.2', pushTok = null, tokSent = false, appWin = null, appOrigin = '';
+  try { pushTok = localStorage.getItem('kamome_push'); } catch (x) {}
+  function pushReady() { return !!(FB.apiKey && FB.projectId && FB.messagingSenderId && FB.appId && VAPID) && 'serviceWorker' in navigator && 'PushManager' in window; }
+  function getPushToken() {
+    if (!pushReady() || !('Notification' in window) || Notification.permission !== 'granted') return Promise.resolve(null);
+    return navigator.serviceWorker.register('sw.js', { scope: './' }).then(function (reg) {
+      return Promise.all([import('https://www.gstatic.com/firebasejs/' + FBV + '/firebase-app.js'), import('https://www.gstatic.com/firebasejs/' + FBV + '/firebase-messaging.js')])
+        .then(function (mods) {
+          return mods[1].isSupported().then(function (ok) {
+            if (!ok) return null;
+            var fapp = mods[0].initializeApp(FB);
+            return mods[1].getToken(mods[1].getMessaging(fapp), { vapidKey: VAPID, serviceWorkerRegistration: reg });
+          });
+        });
+    }).then(function (t) {
+      if (t) { if (t !== pushTok) tokSent = false; pushTok = t; try { localStorage.setItem('kamome_push', t); } catch (x) {} sendTok(); }
+      return t;
+    }).catch(function () { return null; });
+  }
+  // 通知の宛先をアプリにわたす（アプリがサーバーに登録する。だれの端末かはアプリのログインで決まる）
+  function sendTok() { if (pushTok && appWin && !tokSent) { try { appWin.postMessage({ type: 'kamome-push-token', token: pushTok }, appOrigin); tokSent = true; } catch (x) {} } }
+  if (standalone && 'Notification' in window && Notification.permission === 'granted') getPushToken();
   function badge(n) {
     lastN = n;
-    if (!canBadge()) return;
+    if (!canBadge() && !pushReady()) return;
     var perm = ('Notification' in window) ? Notification.permission : 'denied';
-    if (perm === 'granted') { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(function () {}); return; }
+    if (perm === 'granted') { if (canBadge()) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(function () {}); return; }
     var later = 0; try { later = +localStorage.getItem('kamome_badge_later') || 0; } catch (x) {}
     if (standalone && perm === 'default' && Date.now() - later > 7 * 86400000) bdg.className = 'bdg show';
   }
   document.getElementById('bdgok').onclick = function () {
     bdg.className = 'bdg';
     if (!('Notification' in window)) return;
-    Notification.requestPermission().then(function (p) { if (p === 'granted') badge(lastN); }).catch(function () {});
+    Notification.requestPermission().then(function (p) { if (p === 'granted') { badge(lastN); getPushToken(); } }).catch(function () {});
   };
   document.getElementById('bdgno').onclick = function () {
     bdg.className = 'bdg'; try { localStorage.setItem('kamome_badge_later', String(Date.now())); } catch (x) {}
