@@ -63,9 +63,18 @@
     try {
       if (d.type === 'kamome-token' && /^dt_[A-Za-z0-9]{20,80}$/.test(d.token)) localStorage.setItem(KEY, d.token);
       if (d.type === 'kamome-logout') localStorage.removeItem(KEY);
+      if (d.type === 'kamome-haptic') { haptic(d.n === 2 ? 2 : 1); }
       if (d.type === 'kamome-badge') { badge(Math.max(0, Math.min(99, parseInt(d.n, 10) || 0))); appWin = e.source; appOrigin = e.origin; sendTok(); }
     } catch (x) {}
   });
+  // クイズの手ごたえ（iPhone は iOS 18 から、スイッチを押したときの手ごたえを使える）。アプリは Google の枠の中で手ごたえを出せないので、
+  // いちばん外のこのページで出す。iPhone の「設定 → サウンドと触覚 → システムの触覚」がオンのときだけ。
+  function hapticOnce() {
+    var l = document.createElement('label'); l.setAttribute('aria-hidden', 'true'); l.style.display = 'none';
+    var i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', '');
+    l.appendChild(i); document.head.appendChild(l); l.click(); document.head.removeChild(l);
+  }
+  function haptic(n) { try { hapticOnce(); if (n === 2) setTimeout(hapticOnce, 90); } catch (x) {} }
   // iPhone のアイコンのバッジ（ホーム画面に追加したアプリで、通知を許可したときだけ出せる：iOS 16.4 から）
   // アプリを開くたび・1分ごとに、アプリから「やること」の数をもらって数字を更新する。閉じている間は、最後に開いたときの数のまま。
   var standalone = (window.navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
