@@ -38,12 +38,22 @@
   .bdg span{flex:1}
   .bdg button{border:0;border-radius:999px;font:inherit;font-weight:700;padding:8px 12px;cursor:pointer}
   .bdg .ok{background:#3E9BD6;color:#fff}.bdg .no{background:#eef3f8;color:#23395B}
+  /* Face ID（パスキー）の画面。Face ID はこのページ（いちばん外）でしか使えないので、ここでボタンを出して、押してもらう */
+  .pk{display:none;position:fixed;inset:0;z-index:9;background:rgba(20,32,52,.55);align-items:center;justify-content:center;padding:16px}
+  .pk.show{display:flex}
+  .pk .box{width:min(380px,100%);background:#fff;color:#23395B;border-radius:20px;padding:22px 18px;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.3);
+    font:15px/1.6 "Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif}
+  .pk .ic{font-size:46px;line-height:1}.pk h2{font-size:19px;margin:8px 0 4px}.pk p{margin:0 0 14px;font-size:14px;color:#566B88}
+  .pk button{display:block;width:100%;border:0;border-radius:14px;font:inherit;font-weight:700;padding:13px;cursor:pointer;margin-top:8px}
+  .pk .go{background:#3E9BD6;color:#fff;font-size:17px}.pk .no{background:#eef3f8;color:#23395B}
 </style>
 </head>
 <body>
 <!-- かもめのはばたき 本体（Apps Script・家族のURL） -->
 <iframe id="app" title="かもめのはばたき" allow="camera; clipboard-write"></iframe>
 <div class="bdg" id="bdg"><span>🔔 新しい質問や答えがとどいたら、お知らせ（通知）とアイコンの数字で知らせますか？</span><button class="ok" id="bdgok">はい</button><button class="no" id="bdgno">あとで</button></div>
+<div class="pk" id="pk" role="dialog" aria-modal="true"><div class="box"><div class="ic">🙂</div><h2 id="pkt"></h2><p id="pkx"></p>
+  <button class="go" id="pkgo"></button><button class="no" id="pkno">やめる</button></div></div>
 <a class="alt" id="alt" href="https://script.google.com/macros/s/AKfycbzxFht0qINnNU6t3k_GtJUmvYtPnqxWcKr-bY2piIxFuecn_5DZKD-583IaVB0Lrs_s4A/exec" target="_top">ひらけないときは ここをタップ</a>
 <script>
   // ログインを ずっと たもつ：アプリからもらった「端末キー」をここ（ホーム画面のアプリ側）に保存し、
@@ -64,6 +74,9 @@
       if (d.type === 'kamome-token' && /^dt_[A-Za-z0-9]{20,80}$/.test(d.token)) localStorage.setItem(KEY, d.token);
       if (d.type === 'kamome-logout') localStorage.removeItem(KEY);
       if (d.type === 'kamome-haptic') { haptic(d.n === 2 ? 2 : 1); }
+      if (d.type === 'kamome-pk-ping') { e.source.postMessage({ type: 'kamome-pk-pong', ok: pkOk(), reg: localStorage.getItem('kamome_pk') === '1' }, e.origin); }
+      if (d.type === 'kamome-pk' && pkOk()) { pkShow(d, e.source, e.origin); }
+      if (d.type === 'kamome-pk-saved') { localStorage.setItem('kamome_pk', '1'); }
       if (d.type === 'kamome-badge') { badge(Math.max(0, Math.min(99, parseInt(d.n, 10) || 0))); appWin = e.source; appOrigin = e.origin; sendTok(); }
     } catch (x) {}
   });
@@ -114,6 +127,37 @@
     var later = 0; try { later = +localStorage.getItem('kamome_badge_later') || 0; } catch (x) {}
     if (standalone && perm === 'default' && Date.now() - later > 7 * 86400000) bdg.className = 'bdg show';
   }
+  // ---- Face ID（パスキー）：アプリからお願いが来たら、このページにボタンを出す。押したら Face ID を呼んで、結果をアプリへ返す ----
+  // サーバー（Apps Script）が署名を確かめる。秘密の鍵は iPhone から出ない。
+  function pkOk() { return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create); }
+  var pkReq = null, pkWin = null, pkOrigin = '';
+  function u8(s) { s = String(s || '').replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function b64u(buf) { var a = new Uint8Array(buf), s = ''; for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function pkShow(d, win, origin) {
+    pkReq = d; pkWin = win; pkOrigin = origin;
+    document.getElementById('pkt').textContent = d.title || 'Face ID';
+    document.getElementById('pkx').textContent = d.text || '';
+    document.getElementById('pkgo').textContent = d.btn || 'Face ID を使う';
+    document.getElementById('pk').className = 'pk show';
+  }
+  function pkReply(m) { try { pkWin.postMessage(m, pkOrigin); } catch (x) {} }
+  document.getElementById('pkno').onclick = function () { document.getElementById('pk').className = 'pk'; pkReply({ type: 'kamome-pk-result', ok: false, err: 'cancel' }); };
+  document.getElementById('pkgo').onclick = function () {
+    var d = pkReq || {}, o = d.opts || {}; document.getElementById('pk').className = 'pk';
+    var p;
+    if (d.mode === 'create') {
+      p = navigator.credentials.create({ publicKey: { challenge: u8(o.challenge), rp: { id: o.rpId, name: o.rpName || 'かもめのはばたき' },
+        user: { id: u8(o.userId), name: o.userName, displayName: o.userDisplay }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'required', requireResidentKey: true, userVerification: 'required' },
+        excludeCredentials: (o.exclude || []).map(function (id) { return { type: 'public-key', id: u8(id) }; }), attestation: 'none', timeout: 60000 } })
+        .then(function (c) { return { id: c.id, clientDataJSON: b64u(c.response.clientDataJSON), attestationObject: b64u(c.response.attestationObject) }; });
+    } else {
+      p = navigator.credentials.get({ publicKey: { challenge: u8(o.challenge), rpId: o.rpId, userVerification: 'required', timeout: 60000 } })
+        .then(function (c) { return { id: c.id, clientDataJSON: b64u(c.response.clientDataJSON), authenticatorData: b64u(c.response.authenticatorData), signature: b64u(c.response.signature) }; });
+    }
+    p.then(function (data) { pkReply({ type: 'kamome-pk-result', ok: true, data: data }); })
+     .catch(function (er) { pkReply({ type: 'kamome-pk-result', ok: false, err: (er && er.name) || 'error' }); });
+  };
   document.getElementById('bdgok').onclick = function () {
     bdg.className = 'bdg';
     if (!('Notification' in window)) return;
